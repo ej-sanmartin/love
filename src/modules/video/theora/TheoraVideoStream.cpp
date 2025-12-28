@@ -201,6 +201,14 @@ void TheoraVideoStream::seekDecoder(double target)
 	// Now update theora and our decoder on this new position of ours
 	lastFrame = nextFrame = -1;
 	th_decode_ctl(decoder, TH_DECCTL_SET_GRANPOS, &packet.granulepos, sizeof(packet.granulepos));
+
+	// Decode the seeked-to frame to ensure decoder output buffer has fresh
+	// data. Without this, th_decode_ycbcr_out() will return stale frame data
+	// from before the seek, causing the first 2-3 frames to display
+	// incorrectly (especially noticeable with high-bitrate videos).
+	ogg_int64_t decoderPosition;
+	th_decode_packetin(decoder, &packet, &decoderPosition);
+	nextFrame = th_granule_time(decoder, decoderPosition);
 }
 
 void TheoraVideoStream::threadedFillBackBuffer(double dt)
